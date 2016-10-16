@@ -8,8 +8,10 @@
 
 import UIKit
 import Alamofire
+import CoreLocation
 
-class CentralViewController: UIViewController {
+
+class CentralViewController: UIViewController, CLLocationManagerDelegate {
 
     // ALAMOFIRE VARIABLES - - - - -
     var locationURL = "https://api.darksky.net/forecast/639a5ac270e86e62a1d82629fa128e19/37.8267,-122.4233"
@@ -19,14 +21,20 @@ class CentralViewController: UIViewController {
     var currentlySummary: String?
     var minutelySummary: String?
     // - - - - - - - - - - - - - - -
-
     
+    // LOCATION VARIABLES
+    var locationManager = CLLocationManager()
+    
+    // - - -
+    
+    
+
     // STATIC VARIABLES - - - - - -
     var backgroundImage: UIImageView!
     var logoImage: UIImageView!
     var credit: UIButton!
     
-    var location: UILabel!
+    var currentLocation: UILabel!
     var currentTemp: UILabel!
     
     var rainChance: UILabel!
@@ -35,21 +43,66 @@ class CentralViewController: UIViewController {
     var weatherDescription: UILabel!
     // - - - - - - - - - - - - - - -
     
+    
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        callAlamo(url: locationURL)
-        setUpCentral()
         
+        startLocation()
+
         // Do any additional setup after loading the view, typically from a nib.
     }
     
+    
+    
+    
+    
+   //GET COORDINATES ---------------------------
 
+    func startLocation(){
+        if (CLLocationManager.locationServicesEnabled())
+        {
+            locationManager = CLLocationManager()
+            locationManager.delegate = self
+            locationManager.desiredAccuracy = kCLLocationAccuracyBest
+            locationManager.requestWhenInUseAuthorization()
+            locationManager.startUpdatingLocation()
+        }
+    }
+    
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        let location = locations.last! as CLLocation
+        let latitude =  location.coordinate.latitude
+        let longitude = location.coordinate.longitude
+        manager.stopUpdatingLocation()
+        var locationURL = "https://api.darksky.net/forecast/639a5ac270e86e62a1d82629fa128e19/ \(String(latitude)), \(String(longitude))"
+        callAlamo(url: locationURL)
+    }
+    
+    // -----------------------------
+    
+    
+    
+    
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+
+    
+    
     // ALAMOFIRE - - - - - - - - - -
     func callAlamo(url: String){
+        
         Alamofire.request(url).responseJSON(completionHandler: {
             response in
             
             self.parseData(JSONData: response.data!)
+            
+            self.setUpCentral()
         })
         
     }
@@ -77,19 +130,13 @@ class CentralViewController: UIViewController {
     }
     
     // - - - - - - - - - - - - - - -
-
- 
-
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
-    }
-
+    
     
     // ACTIONS / FUNCTIONS - - - - - - -
     
     
     func setUpCentral() {
+        
         
         // LOGO BACKGROUND
         backgroundImage = UIImageView(image: #imageLiteral(resourceName: "goodBackground"))
@@ -112,28 +159,34 @@ class CentralViewController: UIViewController {
         credit.addTarget(self, action:#selector(urlMaker), for: .touchUpInside)
         self.view.addSubview(credit)
         
-        //LOCATION 
-        location = UILabel()
-        location.frame = CGRect(x: view.frame.width*0.1, y: view.frame.height/3 - 10, width: view.frame.width*0.8, height: view.frame.height/8)
-        location.text = "Berkeley, California"
-        location.textColor = UIColor.white
-        location.font = UIFont(name: "Avenir", size: 35)
-        location.textAlignment = .center
-        self.view.addSubview(location)
+        // LOCATION
+        currentLocation = UILabel()
+        currentLocation.frame = CGRect(x: view.frame.width*0.1, y: view.frame.height/3 - 10, width: view.frame.width*0.8, height: view.frame.height/8)
+        currentLocation.text = "Berkeley, California"
+        currentLocation.textColor = UIColor.white
+        currentLocation.font = UIFont(name: "Avenir", size: 35)
+        currentLocation.numberOfLines = 1
+        currentLocation.minimumScaleFactor = 0.5
+        currentLocation.adjustsFontSizeToFitWidth = true
+        currentLocation.textAlignment = .center
+        self.view.addSubview(currentLocation)
         
-        //CURRENT TEMPERATURE
+        // CURRENT TEMPERATURE
         currentTemp = UILabel()
         currentTemp.frame = CGRect(x: view.frame.width*0.25, y: view.frame.height/3 , width: view.frame.width*0.5, height: view.frame.height/3)
-        currentTemp.text = "\(temperature)°"
+        currentTemp.text = "\(Int(temperature!))°"
         currentTemp.textColor = UIColor.white
         currentTemp.font = UIFont(name: "Avenir", size: 100)
         currentTemp.textAlignment = .center
+        currentTemp.numberOfLines = 1
+        currentTemp.minimumScaleFactor = 0.5
+        currentTemp.adjustsFontSizeToFitWidth = true
         self.view.addSubview(currentTemp)
         
         // RAIN CHANCE
         rainChance = UILabel()
         rainChance.frame = CGRect(x: view.frame.width*0.1, y: view.frame.height/2 + 10, width: view.frame.width*0.8, height: view.frame.height/8)
-        rainChance.text = "Chance of rain: \(precipProbability)%"
+        rainChance.text = "Chance of rain: \(Int(precipProbability!*100))%"
         rainChance.textColor = UIColor.white
         rainChance.font = UIFont(name: "Avenir", size: 20)
         rainChance.textAlignment = .center
@@ -142,22 +195,25 @@ class CentralViewController: UIViewController {
         // RAIN DETAILS
         rainDetails = UILabel()
         rainDetails.frame = CGRect(x: view.frame.width*0.1, y: view.frame.height/2 + 35, width: view.frame.width*0.8, height: view.frame.height/8)
-        rainDetails.text = minutelySummary
+        rainDetails.text = minutelySummary!
         rainDetails.textColor = UIColor.white
         rainDetails.font = UIFont(name: "Avenir", size: 20)
         rainDetails.lineBreakMode = NSLineBreakMode.byWordWrapping
         rainDetails.textAlignment = .center
         self.view.addSubview(rainDetails)
         
-        // DESCRIPTION
+        // DESCRIPTION / SUMMARY
         weatherDescription = UILabel()
-        weatherDescription.frame = CGRect(x: (view.frame.width)*0.1, y: view.frame.height*(2/3) - 30, width: view.frame.width*0.8, height: (view.frame.height/3))
+        weatherDescription.frame = CGRect(x: (view.frame.width)*0.1, y: view.frame.height*(1/2), width: view.frame.width*0.8, height: (view.frame.height/3))
         weatherDescription.lineBreakMode = NSLineBreakMode.byWordWrapping
         weatherDescription.numberOfLines = 0
         weatherDescription.textColor = UIColor.white
-        weatherDescription.font = UIFont(name: "Avenir", size: 17)
+        weatherDescription.font = UIFont(name: "Avenir", size: 25)
         weatherDescription.textAlignment = .center
-        weatherDescription.text = "\(currentlySummary)"
+        weatherDescription.text = "Current weather: \(currentlySummary!)"
+        weatherDescription.numberOfLines = 1
+        weatherDescription.minimumScaleFactor = 0.5
+        weatherDescription.adjustsFontSizeToFitWidth = true
         self.view.addSubview(weatherDescription)
         
     }
@@ -173,10 +229,7 @@ class CentralViewController: UIViewController {
         }
     }
     
+    
     // - - - - - - - - - - - - - - - - -
 
 }
-
-
-
-
